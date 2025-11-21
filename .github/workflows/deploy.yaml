@@ -37,7 +37,7 @@ jobs:
       - name: Checkout GitOps repo
         uses: actions/checkout@v4
         with:
-          repository: your-org/your-gitops-repo
+          repository: jonmartindell/gitops-demo
           token: ${{ secrets.GITOPS_PAT }}
           path: gitops
 
@@ -70,8 +70,6 @@ jobs:
     # THIS IS THE PROMOTION GATE
     environment:
       name: production
-      # if you want:
-      # url: https://your-prod-url
 
     steps:
       - name: Checkout ui-app repo
@@ -88,7 +86,7 @@ jobs:
       - name: Checkout GitOps repo
         uses: actions/checkout@v4
         with:
-          repository: your-org/your-gitops-repo
+          repository: jonmartindell/gitops-demo
           token: ${{ secrets.GITOPS_PAT }}
           path: gitops
 
