@@ -1,0 +1,111 @@
+name: UI App Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "message.txt"
+      - ".github/workflows/deploy.yaml"
+
+jobs:
+
+  # ---------------------------------------------------------
+  #  DEV DEPLOYMENT (automatic on push)
+  # ---------------------------------------------------------
+  deploy_dev:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout ui-app repo
+        uses: actions/checkout@v4
+
+      - name: Dummy Test Stage
+        run: |
+          echo "Running fake tests..."
+          sleep 5
+          echo "Tests completed successfully."
+
+      - name: Read message.txt
+        id: message
+        run: |
+          CONTENT=$(cat message.txt)
+          echo "value<<EOF" >> $GITHUB_OUTPUT
+          echo "$CONTENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: your-org/your-gitops-repo
+          token: ${{ secrets.GITOPS_PAT }}
+          path: gitops
+
+      - name: Update development HelmRelease
+        working-directory: gitops
+        run: |
+          FILE="clusters/development/ui-app/helmrelease.yaml"
+          MESSAGE="${{ steps.message.outputs.value }}"
+          sudo snap install yq
+          yq -i ".spec.values.message = \"$MESSAGE\"" "$FILE"
+
+      - name: Commit & Push development changes
+        working-directory: gitops
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add .
+          git commit -m "Auto-deploy: update dev message from ui-app workflow" || echo "No changes"
+          git push
+
+
+  # ---------------------------------------------------------
+  #  PROD DEPLOYMENT (promotion-gated)
+  # ---------------------------------------------------------
+  deploy_prod:
+    # Job automatically starts after deploy_dev
+    needs: deploy_dev
+    runs-on: ubuntu-latest
+
+    # THIS IS THE PROMOTION GATE
+    environment:
+      name: production
+      # if you want:
+      # url: https://your-prod-url
+
+    steps:
+      - name: Checkout ui-app repo
+        uses: actions/checkout@v4
+
+      - name: Read message.txt
+        id: message
+        run: |
+          CONTENT=$(cat message.txt)
+          echo "value<<EOF" >> $GITHUB_OUTPUT
+          echo "$CONTENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: your-org/your-gitops-repo
+          token: ${{ secrets.GITOPS_PAT }}
+          path: gitops
+
+      - name: Update production HelmRelease
+        working-directory: gitops
+        run: |
+          FILE="clusters/production/ui-app/helmrelease.yaml"
+          MESSAGE="${{ steps.message.outputs.value }}"
+          sudo snap install yq
+          yq -i ".spec.values.message = \"$MESSAGE\"" "$FILE"
+
+      - name: Commit & Push production changes
+        working-directory: gitops
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add .
+          git commit -m "Promote: update prod message from ui-app workflow" || echo "No changes"
+          git push
+
